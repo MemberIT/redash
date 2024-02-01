@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+import json
 
 from dateutil.parser import parse
 
@@ -42,14 +43,15 @@ TYPES_MAP = {
 }
 
 
-def json_encoder(dec, o):
-    if isinstance(o, ObjectId):
-        return str(o)
-    elif isinstance(o, Timestamp):
-        return dec.default(o.as_datetime())
-    elif isinstance(o, Decimal128):
-        return o.to_decimal()
-    return None
+class MongoDBJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ObjectId):
+            return str(o)
+        elif isinstance(o, Timestamp):
+            return self.default(o.as_datetime())
+        elif isinstance(o, Decimal128):
+            return o.to_decimal()
+        return super().default(o)
 
 
 date_regex = re.compile(r'ISODate\("(.*)"\)', re.IGNORECASE)
@@ -347,8 +349,9 @@ class MongoDB(BaseQueryRunner):
 
         data = {"columns": columns, "rows": rows}
         error = None
+        json_data = json.dumps(data, cls=MongoDBJSONEncoder)
 
-        return data, error
+        return json_data, error
 
 
 register(MongoDB)
